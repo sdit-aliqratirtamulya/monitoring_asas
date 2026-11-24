@@ -477,7 +477,7 @@
                 </label>
                 <select
                   id="filter-hari"
-                  onchange="ubahFilter()"
+                  onchange="ubahFilter(event)"
                   class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                 >
                   <option value="Senin, 30 Nov 2026">Hari 1 • Senin, 30 Nov 2026</option>
@@ -496,7 +496,7 @@
                 </label>
                 <select
                   id="filter-mapel"
-                  onchange="ubahFilter()"
+                  onchange="ubahFilter(event)"
                   class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                 ></select>
               </div>
@@ -507,7 +507,7 @@
                 </label>
                 <select
                   id="filter-ruang"
-                  onchange="ubahFilter()"
+                  onchange="ubahFilter(event)"
                   class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                 >
                   <option value="SEMUA">Semua Ruang (Rekap Sekolah)</option>
@@ -734,10 +734,22 @@
                     </h3>
                   </div>
 
+                  <!-- Ringkasan Jadwal Terintegrasi (Hari, Tanggal, Sesi & Mapel) -->
+                  <div class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs space-y-1">
+                    <div class="flex items-center justify-between text-[11px] font-bold text-emerald-900">
+                      <span><i class="fa-solid fa-link mr-1"></i>Jadwal Terintegrasi</span>
+                      <span id="ba-info-hari" class="px-2 py-0.5 rounded-md bg-emerald-800 text-white">Senin, 30 Nov 2026</span>
+                    </div>
+                    <div id="ba-info-mapel" class="font-semibold text-emerald-950 leading-snug">
+                      Sesi 1 (07.30 - 09.00) • Pendidikan Agama Islam (PAI)
+                    </div>
+                  </div>
+
                   <div>
                     <label class="block text-xs font-semibold text-slate-600 mb-1">Ruang Ujian</label>
                     <select
                       id="ba-ruang"
+                      onchange="sinkronkanKonteksBeritaAcara(true)"
                       class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600"
                     >
                       <option value="Ruang 1A">Ruang 1A</option>
@@ -763,6 +775,16 @@
                       required
                       placeholder="Contoh: Ustadzah Siti Aminah, S.Pd.I"
                       class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Sesi &amp; Mata Pelajaran (Sesuai Jadwal)</label>
+                    <input
+                      type="text"
+                      id="ba-mapel-input"
+                      readonly
+                      class="w-full rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-xs font-bold text-emerald-950 focus:outline-none"
                     />
                   </div>
 
@@ -1966,7 +1988,7 @@ function doPost(e) {
             ? getRuangTugasAktifPengawas(currentUser, hariDipilih)
             : "SEMUA";
 
-        // Prioritaskan jadwal manual Operator yang tersimpan / ditarik dari Google Sheets
+        // Prioritaskan jadwal manual Operator / Google Sheets yang sesuai Hari & Ruang yang dipilih
         const jadwalManualCocok = daftarJadwalMapel.filter(
           (j) =>
             j.hari.toLowerCase() === hariDipilih.toLowerCase() &&
@@ -1975,9 +1997,18 @@ function doPost(e) {
 
         let daftarSesi = [];
         if (jadwalManualCocok.length > 0) {
+          // Urutkan agar jadwal spesifik ruang tampil lebih dulu dibanding "SEMUA"
+          const terurut = [...jadwalManualCocok].sort((a, b) => {
+            if (a.ruang === ruangDipilih && b.ruang !== ruangDipilih) return -1;
+            if (a.ruang !== ruangDipilih && b.ruang === ruangDipilih) return 1;
+            return String(a.sesi).localeCompare(String(b.sesi));
+          });
+
           const unikLabel = new Set();
-          jadwalManualCocok.forEach((j) => {
-            const label = `${j.sesi} (${j.jam}) • ${j.mapel}${j.ruang !== "SEMUA" ? " [" + j.ruang + "]" : ""}`;
+          terurut.forEach((j) => {
+            const label = `${j.sesi} (${j.jam}) • ${j.mapel}${
+              ruangDipilih === "SEMUA" && j.ruang !== "SEMUA" ? " [" + j.ruang + "]" : ""
+            }`;
             unikLabel.add(label);
           });
           daftarSesi = Array.from(unikLabel);
@@ -1989,6 +2020,7 @@ function doPost(e) {
         }
 
         const nilaiSebelumnya = mapelEl.value;
+        const sesiSebelumnya = ekstrakKodeSesi(nilaiSebelumnya);
 
         mapelEl.innerHTML = daftarSesi
           .map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`)
@@ -1996,6 +2028,62 @@ function doPost(e) {
 
         if (daftarSesi.includes(nilaiSebelumnya)) {
           mapelEl.value = nilaiSebelumnya;
+        } else {
+          const cocokSesiSama = daftarSesi.find((item) => ekstrakKodeSesi(item) === sesiSebelumnya);
+          if (cocokSesiSama) mapelEl.value = cocokSesiSama;
+        }
+        sinkronkanKonteksBeritaAcara(false);
+      }
+
+      function sinkronkanKonteksBeritaAcara(dariDropdownBA = false) {
+        const hari = document.getElementById("filter-hari")?.value || "Senin, 30 Nov 2026";
+        const baRuangEl = document.getElementById("ba-ruang");
+        const filterRuangEl = document.getElementById("filter-ruang");
+        const filterMapelEl = document.getElementById("filter-mapel");
+        const baPengawasEl = document.getElementById("ba-pengawas");
+        const baMapelInputEl = document.getElementById("ba-mapel-input");
+        const baInfoHariEl = document.getElementById("ba-info-hari");
+        const baInfoMapelEl = document.getElementById("ba-info-mapel");
+
+        let ruangTarget = baRuangEl ? baRuangEl.value : "Ruang 1A";
+        if (!dariDropdownBA && filterRuangEl && filterRuangEl.value !== "SEMUA") {
+          ruangTarget = filterRuangEl.value;
+          if (baRuangEl) baRuangEl.value = ruangTarget;
+        }
+
+        const mapelAktif = filterMapelEl ? filterMapelEl.value : "Sesi 1";
+        const sesiKode = ekstrakKodeSesi(mapelAktif);
+
+        // Cari mapel spesifik untuk Ruang & Sesi tersebut jika Operator mengaturnya per ruang
+        const jadwalSpesifikRuang = daftarJadwalMapel.find(
+          (j) =>
+            j.hari.toLowerCase() === hari.toLowerCase() &&
+            j.sesi.toLowerCase() === sesiKode.toLowerCase() &&
+            (j.ruang === ruangTarget || j.ruang === "SEMUA")
+        );
+
+        const labelMapelFinal = jadwalSpesifikRuang
+          ? `${jadwalSpesifikRuang.sesi} (${jadwalSpesifikRuang.jam}) • ${jadwalSpesifikRuang.mapel}`
+          : mapelAktif;
+
+        if (baInfoHariEl) baInfoHariEl.textContent = hari;
+        if (baInfoMapelEl) baInfoMapelEl.textContent = labelMapelFinal;
+        if (baMapelInputEl) baMapelInputEl.value = labelMapelFinal;
+
+        // Sinkronkan nama pengawas berdasarkan jadwal rolling hari + sesi + ruang
+        const jadwalGuru = jadwalRollingPengawas.find(
+          (j) =>
+            j.hari.toLowerCase() === hari.toLowerCase() &&
+            j.sesi.toLowerCase() === sesiKode.toLowerCase() &&
+            j.ruang === ruangTarget
+        );
+
+        if (baPengawasEl) {
+          if (currentUser && currentUser.role === "pengawas") {
+            baPengawasEl.value = currentUser.nama;
+          } else if (jadwalGuru && jadwalGuru.namaPengawas) {
+            baPengawasEl.value = jadwalGuru.namaPengawas;
+          }
         }
       }
 
@@ -2712,19 +2800,30 @@ function doPost(e) {
       }
 
       function ubahFilter(event) {
-        if (event && event.target && (event.target.id === "filter-hari" || event.target.id === "filter-ruang")) {
-          perbaruiOpsiMapelSesuaiHari();
-        }
-        if (currentUser && currentUser.role === "pengawas") {
+        const targetId = event && event.target ? event.target.id : "";
+        const elRuang = document.getElementById("filter-ruang");
+        const baRuang = document.getElementById("ba-ruang");
+        const badgeRole = document.getElementById("badge-role-aktif");
+
+        // Hanya ubah ruang otomatis mengikuti jadwal rolling jika user mengganti Hari atau Sesi,
+        // sedangkan jika user memilih Ruang Ujian secara manual, pertahankan pilihan ruang tersebut!
+        if (currentUser && currentUser.role === "pengawas" && targetId !== "filter-ruang") {
           const ruangRolling = getRuangTugasAktifPengawas(currentUser);
-          const elRuang = document.getElementById("filter-ruang");
-          const baRuang = document.getElementById("ba-ruang");
-          const badgeRole = document.getElementById("badge-role-aktif");
           if (elRuang) elRuang.value = ruangRolling;
           if (baRuang) baRuang.value = ruangRolling;
           if (badgeRole) badgeRole.textContent = `Pengawas • ${ruangRolling}`;
+        } else if (targetId === "filter-ruang" && elRuang && elRuang.value !== "SEMUA") {
+          if (baRuang) baRuang.value = elRuang.value;
+          if (currentUser && currentUser.role === "pengawas" && badgeRole) {
+            badgeRole.textContent = `Pengawas • ${elRuang.value}`;
+          }
+        }
+
+        if (targetId === "filter-hari" || targetId === "filter-ruang" || !targetId) {
           perbaruiOpsiMapelSesuaiHari();
         }
+
+        sinkronkanKonteksBeritaAcara(false);
         sinkronkanStatusHarianKeTampilan();
         renderSemua();
       }
@@ -2930,13 +3029,17 @@ function doPost(e) {
         event.preventDefault();
         if (currentUser && currentUser.role === "kepsek") return;
 
+        sinkronkanKonteksBeritaAcara(true);
         const hari = document.getElementById("filter-hari")?.value || "Senin, 30 Nov 2026";
-        const mapel = document.getElementById("filter-mapel")?.value || "Sesi 1";
+        const mapel =
+          document.getElementById("ba-mapel-input")?.value.trim() ||
+          document.getElementById("filter-mapel")?.value ||
+          "Sesi 1";
         const ruang =
           document.getElementById("ba-ruang")?.value ||
           (currentUser && currentUser.role === "pengawas"
             ? getRuangTugasAktifPengawas(currentUser)
-            : "Ruang 01");
+            : "Ruang 1A");
         const pengawas = document.getElementById("ba-pengawas")?.value.trim();
         const amplop = document.getElementById("ba-amplop")?.value || "Utuh & Tersegel Baik";
         const catatan = document.getElementById("ba-catatan")?.value.trim();
@@ -3073,7 +3176,18 @@ function doPost(e) {
         const pesertaRuang = daftarPeserta.filter((s) => s.ruang === ba.ruang);
         const hadir = pesertaRuang.filter((s) => s.status === "H").length;
         const tidakHadirList = pesertaRuang.filter((s) => s.status !== "H");
-        const mapelAktif = ba.mapel || document.getElementById("filter-mapel")?.value || "Sesi 1 (07.45 - 09.15) • PAI & Budi Pekerti";
+        const sesiKodeBA = ekstrakKodeSesi(ba.mapel || document.getElementById("filter-mapel")?.value || "Sesi 1");
+        const jadwalMapelCocok = daftarJadwalMapel.find(
+          (j) =>
+            j.hari.toLowerCase() === String(ba.hari || "").toLowerCase() &&
+            j.sesi.toLowerCase() === sesiKodeBA.toLowerCase() &&
+            (j.ruang === ba.ruang || j.ruang === "SEMUA")
+        );
+        const mapelAktif =
+          ba.mapel ||
+          (jadwalMapelCocok
+            ? `${jadwalMapelCocok.sesi} (${jadwalMapelCocok.jam}) • ${jadwalMapelCocok.mapel}`
+            : document.getElementById("filter-mapel")?.value || "Sesi 1");
 
         const rincianAbsenHtml =
           tidakHadirList.length === 0
@@ -3255,25 +3369,48 @@ function doPost(e) {
         const icon = document.getElementById("icon-sync");
         if (icon) icon.classList.add("fa-spin");
 
-        const semuaMasterAkun = [
-          ...DAFTAR_AKUN.operator,
-          ...DAFTAR_AKUN.kepsek,
-          ...DAFTAR_AKUN.pengawas
-        ];
+        const isOperator = currentUser && currentUser.role === "operator";
+        const hariAktif = document.getElementById("filter-hari")?.value || "Senin, 30 Nov 2026";
+        const mapelAktif = document.getElementById("filter-mapel")?.value || "Sesi 1";
+        const filterRuangEl = document.getElementById("filter-ruang")?.value || "SEMUA";
+
+        // Tentukan lingkup peserta yang dikirim agar tidak mengirim data ruang lain yang bukan tugasnya
+        let pesertaTerkirim = daftarPeserta;
+        let baTerkirim = logBeritaAcara;
+        let logPengawasTerkirim = logPresensiPengawas;
+
+        if (currentUser && currentUser.role === "pengawas") {
+          const ruangTugas =
+            filterRuangEl !== "SEMUA"
+              ? filterRuangEl
+              : getRuangTugasAktifPengawas(currentUser, hariAktif, mapelAktif);
+
+          pesertaTerkirim = daftarPeserta.filter((s) => s.ruang === ruangTugas);
+          baTerkirim = logBeritaAcara.filter(
+            (b) => b.ruang === ruangTugas || b.pengawas === currentUser.nama
+          );
+          logPengawasTerkirim = logPresensiPengawas.filter(
+            (p) => p.ruang === ruangTugas || p.namaPengawas === currentUser.nama
+          );
+        } else if (filterRuangEl !== "SEMUA") {
+          pesertaTerkirim = daftarPeserta.filter((s) => s.ruang === filterRuangEl);
+        }
 
         const payload = {
-          hari: document.getElementById("filter-hari")?.value || "Senin, 30 Nov 2026",
-          mapel: document.getElementById("filter-mapel")?.value || "Sesi 1",
+          rolePengirim: currentUser ? currentUser.role : "pengawas",
+          hari: hariAktif,
+          mapel: mapelAktif,
           penginput: currentUser ? currentUser.nama : "Admin",
-          logoDriveUrl: rawLogoDriveUrl,
-          tarifHonorPerHari,
-          tarifKonsumsiPerHari,
-          masterPengawas: semuaMasterAkun,
-          jadwalMapel: daftarJadwalMapel,
-          masterPeserta: daftarPeserta,
-          peserta: daftarPeserta,
-          beritaAcara: logBeritaAcara,
-          presensiPengawas: logPresensiPengawas
+          // Data Master & Pengaturan Sekolah HANYA dikirim oleh Operator agar tidak menimpa/menggandakan data
+          logoDriveUrl: isOperator ? rawLogoDriveUrl : undefined,
+          tarifHonorPerHari: isOperator ? tarifHonorPerHari : undefined,
+          tarifKonsumsiPerHari: isOperator ? tarifKonsumsiPerHari : undefined,
+          jadwalMapel: isOperator ? daftarJadwalMapel : undefined,
+          masterPeserta: isOperator ? daftarPeserta : undefined,
+          // Data Transaksi Harian (Hanya ruang yang relevan)
+          peserta: pesertaTerkirim,
+          beritaAcara: baTerkirim,
+          presensiPengawas: logPengawasTerkirim
         };
 
         try {
@@ -3296,7 +3433,7 @@ function doPost(e) {
           if (manual) {
             tampilkanToast(
               gasWebAppUrl
-                ? "Berhasil disinkronkan ke Google Sheets via GAS!"
+                ? `Berhasil kirim ${pesertaTerkirim.length} data peserta & laporan ruang ke Google Sheets!`
                 : "Sinkronisasi lokal selesai (Atur URL GAS di menu Operator untuk kirim ke Google Sheets).",
               "success"
             );
@@ -3580,6 +3717,10 @@ function doPost(e) {
                         <i class="fa-solid fa-hourglass-half mr-1"></i>Menunggu Pengesahan
                       </span>`
                 }
+              </div>
+
+              <div class="text-xs font-bold text-emerald-900 bg-emerald-50/80 px-2.5 py-1 rounded-lg border border-emerald-100">
+                <i class="fa-solid fa-book-open mr-1"></i>${escapeHtml(b.mapel || "Sesi Ujian ASAS")}
               </div>
 
               <div class="text-xs text-slate-600">
