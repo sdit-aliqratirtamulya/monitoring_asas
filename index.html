@@ -2476,11 +2476,12 @@ function doPost(e) {
         if (currentUser.role === "pengawas") {
           if (filterRuang) {
             filterRuang.value = ruangAktifSekarang;
-            filterRuang.disabled = false;
+            filterRuang.disabled = true;
+            filterRuang.title = "Terkunci otomatis sesuai jadwal mengawas pada Hari & Sesi yang dipilih";
           }
           if (baRuang) {
             baRuang.value = ruangAktifSekarang;
-            baRuang.disabled = false;
+            baRuang.disabled = true;
           }
           if (baPengawas) baPengawas.value = currentUser.nama;
           if (btnHadirSemua) btnHadirSemua.classList.remove("hidden");
@@ -2492,6 +2493,7 @@ function doPost(e) {
           if (filterRuang) {
             filterRuang.value = "SEMUA";
             filterRuang.disabled = false;
+            filterRuang.title = "";
           }
           if (btnHadirSemua) btnHadirSemua.classList.add("hidden");
           if (btnImporMassal) btnImporMassal.classList.add("hidden");
@@ -2503,6 +2505,7 @@ function doPost(e) {
           if (filterRuang) {
             filterRuang.value = "SEMUA";
             filterRuang.disabled = false;
+            filterRuang.title = "";
           }
           if (baRuang) baRuang.disabled = false;
           if (baPengawas) baPengawas.value = currentUser.nama;
@@ -2805,22 +2808,30 @@ function doPost(e) {
         const baRuang = document.getElementById("ba-ruang");
         const badgeRole = document.getElementById("badge-role-aktif");
 
-        // Hanya ubah ruang otomatis mengikuti jadwal rolling jika user mengganti Hari atau Sesi,
-        // sedangkan jika user memilih Ruang Ujian secara manual, pertahankan pilihan ruang tersebut!
-        if (currentUser && currentUser.role === "pengawas" && targetId !== "filter-ruang") {
-          const ruangRolling = getRuangTugasAktifPengawas(currentUser);
-          if (elRuang) elRuang.value = ruangRolling;
-          if (baRuang) baRuang.value = ruangRolling;
-          if (badgeRole) badgeRole.textContent = `Pengawas • ${ruangRolling}`;
-        } else if (targetId === "filter-ruang" && elRuang && elRuang.value !== "SEMUA") {
-          if (baRuang) baRuang.value = elRuang.value;
-          if (currentUser && currentUser.role === "pengawas" && badgeRole) {
-            badgeRole.textContent = `Pengawas • ${elRuang.value}`;
-          }
+        if (targetId === "filter-hari") {
+          perbaruiOpsiMapelSesuaiHari();
         }
 
-        if (targetId === "filter-hari" || targetId === "filter-ruang" || !targetId) {
+        // Untuk role Pengawas, kunci dropdown Ruang Ujian otomatis mengikuti Hari & Sesi aktif
+        if (currentUser && currentUser.role === "pengawas") {
+          const ruangRolling = getRuangTugasAktifPengawas(currentUser);
+          if (elRuang) {
+            elRuang.value = ruangRolling;
+            elRuang.disabled = true;
+          }
+          if (baRuang) {
+            baRuang.value = ruangRolling;
+            baRuang.disabled = true;
+          }
+          if (badgeRole) badgeRole.textContent = `Pengawas • ${ruangRolling}`;
+          if (targetId === "filter-mapel") {
+            perbaruiOpsiMapelSesuaiHari();
+          }
+        } else if (targetId === "filter-ruang" && elRuang) {
           perbaruiOpsiMapelSesuaiHari();
+          if (elRuang.value !== "SEMUA" && baRuang) {
+            baRuang.value = elRuang.value;
+          }
         }
 
         sinkronkanKonteksBeritaAcara(false);
