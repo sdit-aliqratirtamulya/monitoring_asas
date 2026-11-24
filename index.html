@@ -1395,7 +1395,144 @@ function doPost(e) {
                 <option value="1A">Kelas 1A</option>
                 <option value="1B">Kelas 1B</option>
                 <option value="2A">Kelas 2A</option>
+                <option value="2B">Kelas 2B</option>
+                <option value="3A">Kelas 3A</option>
+                <option value="3B">Kelas 3B</option>
+                <option value="4A">Kelas 4A</option>
+                <option value="4B">Kelas 4B</option>
+                <option value="5A">Kelas 5A</option>
+                <option value="5B">Kelas 5B</option>
+                <option value="6A">Kelas 6A</option>
+                <option value="6B">Kelas 6B</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Ruang Ujian</label>
+              <select
+                id="new-ruang"
+                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
+              >
+                <option value="Ruang 1A">Ruang 1A</option>
+                <option value="Ruang 1B">Ruang 1B</option>
+                <option value="Ruang 2A">Ruang 2A</option>
+                <option value="Ruang 2B">Ruang 2B</option>
+                <option value="Ruang 3A">Ruang 3A</option>
+                <option value="Ruang 3B">Ruang 3B</option>
+                <option value="Ruang 4A">Ruang 4A</option>
+                <option value="Ruang 4B">Ruang 4B</option>
+                <option value="Ruang 5A">Ruang 5A</option>
+                <option value="Ruang 5B">Ruang 5B</option>
+                <option value="Ruang 6A">Ruang 6A</option>
+                <option value="Ruang 6B">Ruang 6B</option>
+              </select>
+            </div>
+          </div>
+
           <div class="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onclick="tutupModalTambah()"
+              class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs shadow-xs"
+            >
+              Simpan Peserta
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL IMPOR MASSAL EXCEL / CSV (KHUSUS OPERATOR)                      -->
+    <!-- ===================================================================== -->
+    <div
+      id="modal-impor-massal"
+      class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4"
+    >
+      <div class="bg-white rounded-2xl max-w-2xl w-full p-5 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Impor Massal Peserta ASAS (Excel / CSV)</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Format kolom: No_Peserta, Nama_Lengkap, Kelas, Ruang</p>
+          </div>
+          <button type="button" onclick="tutupModalImporMassal()" class="text-slate-400 hover:text-slate-600 p-1">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+          <div class="flex items-center gap-2">
+            <label
+              for="input-file-csv"
+              class="cursor-pointer px-3 py-1.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold flex items-center gap-1.5"
+            >
+              <i class="fa-solid fa-folder-open"></i>
+              <span>Pilih File CSV</span>
+              <input
+                type="file"
+                id="input-file-csv"
+                accept=".csv,.txt"
+                onchange="bacaFileCSV(event)"
+                class="hidden"
+              />
+            </label>
+            <button
+              type="button"
+              onclick="unduhTemplateCSV()"
+              class="px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold"
+            >
+              Unduh Template CSV
+            </button>
+          </div>
+          <span id="badge-validasi-impor" class="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-900 text-xs font-extrabold">
+            0 Baris Valid
+          </span>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">
+            Atau Copy-Paste Langsung dari Excel / Google Sheets:
+          </label>
+          <textarea
+            id="textarea-impor-csv"
+            rows="5"
+            oninput="pratinjauDataImpor()"
+            placeholder="26-01-001, Ahmad Fauzan, 1A, Ruang 1A&#10;26-01-002, Aisyah Putri, 1A, Ruang 1A"
+            class="w-full rounded-xl border border-slate-200 p-3 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-600"
+          ></textarea>
+        </div>
+
+        <div id="box-pratinjau-impor" class="hidden border border-slate-200 rounded-xl overflow-hidden">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+              <tr>
+                <th class="py-1.5 px-3">No. Peserta</th>
+                <th class="py-1.5 px-3">Nama</th>
+                <th class="py-1.5 px-3">Kelas</th>
+                <th class="py-1.5 px-3">Ruang</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-pratinjau-impor" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+          <div class="flex items-center gap-4 text-xs font-semibold text-slate-700">
+            <label class="flex items-center gap-1.5 cursor-pointer">
+              <input type="radio" name="mode-impor" value="tambah" checked class="accent-emerald-700" />
+              <span>Tambahkan ke data lama</span>
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer">
+              <input type="radio" name="mode-impor" value="ganti" class="accent-rose-600" />
+              <span>Ganti seluruh peserta</span>
+            </label>
+          </div>
+          <div class="flex items-center gap-2">
             <button
               type="button"
               onclick="tutupModalImporMassal()"
@@ -1414,6 +1551,7 @@ function doPost(e) {
           </div>
         </div>
       </div>
+    </div>
 
     <!-- ===================================================================== -->
     <!-- MODAL PENGATURAN JADWAL MATA PELAJARAN MANUAL (KHUSUS OPERATOR)       -->
